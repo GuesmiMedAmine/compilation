@@ -1,4 +1,5 @@
 package Type;
+import java.util.HashMap;
 import java.util.Map;
 
 public class ArrayType extends Type{
@@ -22,12 +23,25 @@ public class ArrayType extends Type{
 
     @Override
     public Map<UnknownType, Type> unify(Type t) {
+        // Résolution : si t est UnknownType déjà lié, utilisez t.getValue() si implémenté
+        // Pour l'instant, on utilise t tel quel
+
+        // Identité
+        if (this.equals(t)) return new HashMap<>();
+
+        // t est inconnu
+        if (t instanceof UnknownType) {
+            UnknownType u = (UnknownType) t;
+            if (this.contains(u)) return null; // Occurs Check
+            return Map.of(u, this);
+        }
+
+        // Composite
         if (t instanceof ArrayType) {
             return tabType.unify(((ArrayType) t).tabType);
         }
-        if (t instanceof UnknownType) {
-            return Map.of((UnknownType) t, this);
-        }
+
+        // Types incompatibles
         return null;
     }
 

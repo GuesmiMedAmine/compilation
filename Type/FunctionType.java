@@ -44,35 +44,48 @@ public class FunctionType extends Type {
 
     @Override
     public Map<UnknownType, Type> unify(Type t) {
-        if (!(t instanceof FunctionType)) {
-            if (t instanceof UnknownType) {
-                return Map.of((UnknownType) t, this);
-            }
-            return null;
+        // Identité
+        if (this.equals(t)) return new HashMap<>();
+
+        // t est inconnu
+        if (t instanceof UnknownType) {
+            UnknownType u = (UnknownType) t;
+            if (this.contains(u)) return null; // Occurs Check
+            return Map.of(u, this);
         }
 
+        // Composite : doit être FunctionType
+        if (!(t instanceof FunctionType)) return null;
         FunctionType ft = (FunctionType) t;
+
+        // Vérifier le nombre d'arguments
         if (argsTypes.size() != ft.argsTypes.size()) return null;
 
         Map<UnknownType, Type> subst = new HashMap<>();
 
-        // Unifier les paramètres
+        // Unifier les arguments un par un
         for (int i = 0; i < argsTypes.size(); i++) {
-            Map<UnknownType, Type> s = argsTypes.get(i).unify(ft.argsTypes.get(i));
+            Type arg1 = argsTypes.get(i).substituteAll(subst);
+            Type arg2 = ft.argsTypes.get(i).substituteAll(subst);
+
+            Map<UnknownType, Type> s = arg1.unify(arg2);
             if (s == null) return null;
+
+            // Composer les substitutions accumulées
             subst = compose(subst, s);
         }
 
-        // Unifier le retour
+        // Unifier le type de retour
         Type ret1 = returnType.substituteAll(subst);
         Type ret2 = ft.returnType.substituteAll(subst);
+
         Map<UnknownType, Type> sret = ret1.unify(ret2);
         if (sret == null) return null;
+
         subst = compose(subst, sret);
 
         return subst;
     }
-
     // Utilitaire : compose deux substitutions
     private Map<UnknownType, Type> compose(Map<UnknownType, Type> s1, Map<UnknownType, Type> s2) {
         Map<UnknownType, Type> result = new HashMap<>(s1);
