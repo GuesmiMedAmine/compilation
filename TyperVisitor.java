@@ -3,12 +3,45 @@ import java.util.Map;
 
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
-import Type.Type;
-import Type.UnknownType;
+import Type.*;
 
 public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements grammarTCLVisitor<Type> {
 
     private Map<UnknownType,Type> types = new HashMap<UnknownType,Type>();
+
+
+    // 1. Table des Symboles (Section 3.1 du plan)
+    // Associe le nom de variable à son type
+    private Map<String, Type> symbolTable = new HashMap<>();
+
+    /**
+     * 2. Le Solver (Section 3.2 du plan)
+     * Tente d'unifier t1 et t2 et met à jour la map globale de substitution 'types'.
+     */
+    private void solve(Type t1, Type t2) {
+        // 1. Appliquer les connaissances actuelles (substitutions déjà trouvées)
+        Type t1_sub = t1.substituteAll(this.types);
+        Type t2_sub = t2.substituteAll(this.types);
+
+        // 2. Tenter d'unifier
+        Map<UnknownType, Type> res = t1_sub.unify(t2_sub);
+
+        // Gestion d'erreur si l'unification échoue
+        if (res == null) {
+            throw new Error("Erreur de typage: Impossible d'unifier " + t1_sub + " et " + t2_sub);
+        }
+
+        // 3. Mettre à jour la solution globale 'types'
+
+        // a) Mettre à jour les anciennes entrées avec les nouvelles découvertes
+        // Ex: si on savait A=B et qu'on découvre B=int, alors A devient int.
+        for (Map.Entry<UnknownType, Type> entry : this.types.entrySet()) {
+            entry.setValue(entry.getValue().substituteAll(res));
+        }
+
+        // b) Ajouter les nouvelles découvertes
+        this.types.putAll(res);
+    }
 
     public Map<UnknownType, Type> getTypes() {
         return types;
@@ -46,8 +79,25 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitTab_access(grammarTCLParser.Tab_accessContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitTab_access'");
+
+        // Type de l'expression t
+        Type tType = visit(ctx.expr(0));
+
+        // Type de l'index i
+        Type indexType = visit(ctx.expr(1));
+
+        // 1) L'index doit être un entier
+        solve(indexType, new PrimitiveType(Type.Base.INT));
+
+        // 2) Le tableau doit être un ArrayType (ou un UnknownType qui devient tableau)
+        UnknownType elemType = new UnknownType();
+        ArrayType expectedArray = new ArrayType(elemType);
+
+        // Tenter d'unifier tType avec Array[T]
+        solve(tType, expectedArray);
+
+        // 3) Le résultat est le type des éléments
+        return elemType;
     }
 
     @Override
@@ -94,8 +144,18 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitTab_initialization(grammarTCLParser.Tab_initializationContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitTab_initialization'");
+
+        // 1) Créer un nouveau type inconnu pour le type des éléments
+        UnknownType T = new UnknownType();
+
+        // 2) Pour chaque élément entre { ... }, unifier son type avec T
+        for (var expr : ctx.expr()) {
+            Type elemType = visit(expr);
+            solve(elemType, T);
+        }
+
+        // 3) Retourner un tableau dont les éléments sont de type T
+        return new ArrayType(T);
     }
 
     @Override
@@ -182,5 +242,4 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
         throw new UnsupportedOperationException("Unimplemented method 'visitMain'");
     }
 
-    
 }
