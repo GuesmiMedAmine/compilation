@@ -10,6 +10,40 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     private Map<UnknownType,Type> types = new HashMap<UnknownType,Type>();
 
+
+    // 1. Table des Symboles (Section 3.1 du plan)
+    // Associe le nom de variable à son type
+    private Map<String, Type> symbolTable = new HashMap<>();
+
+    /**
+     * 2. Le Solver (Section 3.2 du plan)
+     * Tente d'unifier t1 et t2 et met à jour la map globale de substitution 'types'.
+     */
+    private void solve(Type t1, Type t2) {
+        // 1. Appliquer les connaissances actuelles (substitutions déjà trouvées)
+        Type t1_sub = t1.substituteAll(this.types);
+        Type t2_sub = t2.substituteAll(this.types);
+
+        // 2. Tenter d'unifier
+        Map<UnknownType, Type> res = t1_sub.unify(t2_sub);
+
+        // Gestion d'erreur si l'unification échoue
+        if (res == null) {
+            throw new Error("Erreur de typage: Impossible d'unifier " + t1_sub + " et " + t2_sub);
+        }
+
+        // 3. Mettre à jour la solution globale 'types'
+
+        // a) Mettre à jour les anciennes entrées avec les nouvelles découvertes
+        // Ex: si on savait A=B et qu'on découvre B=int, alors A devient int.
+        for (Map.Entry<UnknownType, Type> entry : this.types.entrySet()) {
+            entry.setValue(entry.getValue().substituteAll(res));
+        }
+
+        // b) Ajouter les nouvelles découvertes
+        this.types.putAll(res);
+    }
+
     public Map<UnknownType, Type> getTypes() {
         return types;
     }
@@ -182,5 +216,5 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
         throw new UnsupportedOperationException("Unimplemented method 'visitMain'");
     }
 
-    
+
 }
