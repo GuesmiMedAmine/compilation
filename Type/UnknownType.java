@@ -72,32 +72,51 @@ public class UnknownType extends Type {
 
     @Override
     public Map<UnknownType, Type> unify(Type t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'unify'");
+        // cas (A = A)
+        if (this.equals(t)) {
+            return new java.util.HashMap<>();
+        }
+        // cas (A = Tab[A]
+        if (t.contains(this)) {
+            System.out.println("Erreur de type: " + this);
+            return null;
+        }
+        // cas succès X = int
+        Map<UnknownType, Type> res = new java.util.HashMap<>();
+        res.put(this, t);
+        return res;
     }
 
     @Override
     public Type substitute(UnknownType v, Type t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'substitute'");
+        if (this.equals(v)){
+            return t; // si je suis la variable qu'on cherche à remplacé je renvoi t
+        }
+        return this;
     }
 
     @Override
     public boolean contains(UnknownType v) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'contains'");
+        //je me contiens moi meme si je suis la varible v
+        return this.equals(v);
     }
 
+    /**
+     * Deux variables inconnues sont égales si elles ont le même INDEX.
+     */
     @Override
     public boolean equals(Object t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'equals'");
+        if (this == t) return true;
+        if (!(t instanceof UnknownType)) return false;
+        return this.varIndex == ((UnknownType)t).varIndex;
     }
-
     @Override
     public String toString() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'toString'");
+        return "var_" + this.varIndex; // Ex: "var_1"
+    }
+    @Override
+    public int hashCode() {
+        return this.varIndex;
     }
 
     
