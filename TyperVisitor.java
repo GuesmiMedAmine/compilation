@@ -3,7 +3,8 @@ import java.util.Map;
 
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
-import Type.* ;
+import Type.Type;
+import Type.UnknownType;
 
 public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements grammarTCLVisitor<Type> {
 
@@ -45,17 +46,8 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitTab_access(grammarTCLParser.Tab_accessContext ctx) {
-        // ctx.expr(0) : le tableau, ctx.expr(1) : l'indice
-        Type tabType = visit(ctx.expr(0));
-        if (!(tabType instanceof ArrayType)) {
-            throw new RuntimeException("Erreur : accès sur un type non-tableau");
-        }
-
-        Type indexType = visit(ctx.expr(1));
-        // Vérifier que l'indice est un entier
-        solve(indexType, new PrimitiveType(Type.Base.INT));
-
-        return ((ArrayType) tabType).getTabType();
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitTab_access'");
     }
 
     @Override
@@ -102,14 +94,8 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitTab_initialization(grammarTCLParser.Tab_initializationContext ctx) {
-        UnknownType elementType = new UnknownType();
-
-        for (int i = 0; i < ctx.expr().size(); i++) {
-            Type t = visit(ctx.expr(i));
-            solve(t, elementType);
-        }
-
-        return new ArrayType(elementType);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitTab_initialization'");
     }
 
     @Override
@@ -195,10 +181,6 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'visitMain'");
     }
+
     
-    private void solve(Type t1, Type t2) {
-        Map<UnknownType, Type> s = t1.unify(t2);
-        if (s == null) throw new RuntimeException("Erreur d'unification : " + t1 + " et " + t2);
-        types.putAll(s);
-    }
 }
