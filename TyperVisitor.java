@@ -45,7 +45,7 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitTab_access(grammarTCLParser.Tab_accessContext ctx) {
-        // ctx.expression(0) : le tableau, ctx.expression(1) : l'indice
+        // ctx.expr(0) : le tableau, ctx.expr(1) : l'indice
         Type tabType = visit(ctx.expr(0));
         if (!(tabType instanceof ArrayType)) {
             throw new RuntimeException("Erreur : accès sur un type non-tableau");
