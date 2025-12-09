@@ -22,32 +22,33 @@ public class ArrayType extends Type{
 
     @Override
     public Map<UnknownType, Type> unify(Type t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'unify'");
+        if (t instanceof ArrayType) {
+            return tabType.unify(((ArrayType) t).tabType);
+        }
+        if (t instanceof UnknownType) {
+            return Map.of((UnknownType) t, this);
+        }
+        return null;
     }
 
     @Override
     public Type substitute(UnknownType v, Type t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'substitute'");
+        return new ArrayType(tabType.substitute(v, t));
     }
 
     @Override
     public boolean contains(UnknownType v) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'contains'");
+        return tabType.contains(v);
     }
 
     @Override
-    public boolean equals(Object t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'equals'");
+    public boolean equals(Object o) {
+        return o instanceof ArrayType && tabType.equals(((ArrayType) o).tabType);
     }
 
     @Override
     public String toString() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'toString'");
+        return tabType + "[]";
     }
 
     
