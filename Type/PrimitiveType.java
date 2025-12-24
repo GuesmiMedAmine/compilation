@@ -22,32 +22,38 @@ public  class PrimitiveType extends Type {
 
     @Override
     public Map<UnknownType, Type> unify(Type t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'unify'");
+
+        //si c unkowntype on laisse gérer, si c le meme => succées map vide
+        if (t instanceof UnknownType) {
+            return t.unify(this); // Délégation
+        }
+        if (t instanceof PrimitiveType && this.type == ((PrimitiveType)t).type) {
+            return new java.util.HashMap<>(); // Map vide = Succès sans substitution
+        }
+        return null; // Impossible d'unifier (ex: INT vs BOOL)
     }
 
     @Override
     public Type substitute(UnknownType v, Type t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'substitute'");
+         return this;
     }
 
     @Override
     public boolean contains(UnknownType v) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'contains'");
+        return false; //un type primitif ne contient pas d'UnknownType'
     }
 
     @Override
     public boolean equals(Object t) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'equals'");
+        //comparer 2 types ex int = int
+        if (this == t) return true;
+        if (!(t instanceof PrimitiveType)) return false;
+        return this.type == ((PrimitiveType) t).type;
     }
 
     @Override
     public String toString() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'toString'");
+        return type.toString().toLowerCase();
     }
 
 }
