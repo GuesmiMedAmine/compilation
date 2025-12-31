@@ -1,6 +1,6 @@
 import java.util.HashMap;
 import java.util.Map;
-import Type.*;
+import Type.PrimitiveType;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
 import Type.*;
@@ -135,8 +135,12 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitVariable(grammarTCLParser.VariableContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitVariable'");
+        String name = ctx.getText();
+        Type t = symbolTable.get(name);
+        if (t == null) {
+            throw new RuntimeException("Erreur Variable '" + name + "' non déclarée.");
+        }
+        return t;
     }
 
     @Override
@@ -176,13 +180,13 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
     @Override
     public Type visitAddition(grammarTCLParser.AdditionContext ctx) {
 
-            Type t1 = visit(ctx.expr(0));
-            Type t2 = visit(ctx.expr(1));
-            // On force les deux côtés à être des entiers car on a une addition
-            solve(t1, new PrimitiveType(Type.Base.INT));
-            solve(t2, new PrimitiveType(Type.Base.INT));
-            return new PrimitiveType(Type.Base.INT);
-        }
+        Type t1 = visit(ctx.expr(0));
+        Type t2 = visit(ctx.expr(1));
+        // On force les deux côtés à être des entiers car on a une addition
+        solve(t1, new PrimitiveType(Type.Base.INT));
+        solve(t2, new PrimitiveType(Type.Base.INT));
+        return new PrimitiveType(Type.Base.INT);
+    }
 
     @Override
     public Type visitBase_type(grammarTCLParser.Base_typeContext ctx) {
@@ -200,28 +204,24 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitDeclaration(grammarTCLParser.DeclarationContext ctx) {
-        // 1. Récupération du nom
         String name = ctx.VAR().getText();
         Type t;
 
-        // 2. Détermination du type
-        if (ctx.type() != null) {
-            t = visit(ctx.type());
-        } else {
+        // Déduction du type
+        if (ctx.type().getText().equals("auto")) {
             t = new UnknownType();
+        } else {
+            t = visit(ctx.type());
         }
 
-        // 3. SETUP TABLE DES SYMBOLES : On enregistre
+        // Enregistrement
         symbolTable.put(name, t);
 
-        // 4. Initialisation (On traite la liste d'expressions)
-        if (ctx.expr() != null && !ctx.expr().isEmpty()) {
-            // On récupère le premier élément de la LISTE avec .get(0)
+        if (ctx.expr() != null) {
             Type tExpr = visit(ctx.expr());
             solve(t, tExpr);
         }
-        return null;
-
+        return new PrimitiveType(Type.Base.VOID);
     }
 
     @Override
@@ -235,86 +235,86 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitAssignment(grammarTCLParser.AssignmentContext ctx) {
-        // 1. Récupération du nom
         String name = ctx.VAR().getText();
+        Type tVar = symbolTable.get(name);
+        if (tVar == null) throw new Error("Erreur : Variable '" + name + "' non déclarée !");
 
-        // 2. Vérification dans la symbolTable
-        Type varType = symbolTable.get(name);
-        if (varType == null) {
-            throw new Error("Erreur : La variable '" + name + "' n'est pas déclarée !");
-        }
+        // On prend toujours la derniere expression de la liste
 
-        // 3. Récupération de la nouvelle valeur depuis la LISTE
-        if (ctx.expr() != null && !ctx.expr().isEmpty()) {
-            Type exprType = visit(ctx.expr().get(0));
-            // 4. Unification via le Solver
-            solve(varType, exprType);
-        }
+        int lastIndex = ctx.expr().size() - 1;
+        Type tExpr = visit(ctx.expr(lastIndex));
 
-        return null;
+        solve(tVar, tExpr);
+        return new PrimitiveType(Type.Base.VOID);
     }
 
     @Override
     public Type visitBlock(grammarTCLParser.BlockContext ctx) {
-        // 1. On sauvegarde la table des symboles actuelle (Le "Scope" parent)
         Map<String, Type> parentScope = new HashMap<>(this.symbolTable);
 
-        // 2. On visite tous les enfants du bloc (les instructions) un par un
-        // visitChildren est une méthode magique qui évite de devoir connaître le nom exact de la règle
-        super.visitChildren(ctx);
+        // On visite explicitement les instructions du bloc
+        for(grammarTCLParser.InstrContext instr : ctx.instr()) {
+            visit(instr);
+        }
 
-        // 3. On restaure la table d'origine : les variables créées dans le bloc sont supprimées
         this.symbolTable = parentScope;
-
-        return null;
+        return new PrimitiveType(Type.Base.VOID);
     }
 
     @Override
     public Type visitIf(grammarTCLParser.IfContext ctx) {
-        // 1. On récupère le type de la condition entre parenthèses
-        Type condType = visit(ctx.expr());
-
-        // 2. On force cette condition à être un BOOLÉEN
-        // C'est la règle de sécurité : un "if(5)" ne doit pas passer.
-        solve(condType, new PrimitiveType(Type.Base.BOOL));
-
-        // 3. On visite le reste (le corps du 'if' et du 'else')
-        // On utilise visitChildren pour éviter les erreurs de noms d'instructions
-        super.visitChildren(ctx);
-
-        return null;
+        solve(visit(ctx.expr()), new PrimitiveType(Type.Base.BOOL));
+        // On visite le 'then'
+        visit(ctx.instr(0));
+        // On visite le 'else' s'il existe
+        if (ctx.instr().size() > 1) {
+            visit(ctx.instr(1));
+        }
+        return new PrimitiveType(Type.Base.VOID);
     }
 
     @Override
     public Type visitWhile(grammarTCLParser.WhileContext ctx) {
-        // 1. On récupère le type de la condition de boucle
-        Type condType = visit(ctx.expr());
-
-        // 2. La condition du while doit obligatoirement être un BOOLÉEN
-        solve(condType, new PrimitiveType(Type.Base.BOOL));
-
-        // 3. On visite le corps de la boucle
-        super.visitChildren(ctx);
-
-        return null;
+        solve(visit(ctx.expr()), new PrimitiveType(Type.Base.BOOL));
+        visit(ctx.instr());
+        return new PrimitiveType(Type.Base.VOID);
     }
 
     @Override
     public Type visitFor(grammarTCLParser.ForContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitFor'");
+        Map<String, Type> snapshot = new HashMap<>(symbolTable);
+
+        // 1. Init (ex: int i=0)
+        if (ctx.instr(0) != null) visit(ctx.instr(0));
+
+        // 2. Condition (ex: i<10)
+        solve(visit(ctx.expr()), new PrimitiveType(Type.Base.BOOL));
+
+        // 3. Incrément (ex: i=i+1) - C'est la 3eme partie entre parenthèses
+        if (ctx.instr().size() > 2) visit(ctx.instr(1));
+        // Note: La grammaire for est un peu complexe, on suppose ici la structure standard
+
+        // 4. Corps de la boucle (la dernière instruction)
+        visit(ctx.instr(ctx.instr().size() - 1));
+
+        symbolTable = snapshot;
+        return new PrimitiveType(Type.Base.VOID);
     }
 
     @Override
     public Type visitReturn(grammarTCLParser.ReturnContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitReturn'");
+        // On renvoie simplement le type de l'expression retournée
+        return visit(ctx.expr());
     }
 
     @Override
     public Type visitCore_fct(grammarTCLParser.Core_fctContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitCore_fct'");
+        // On visite toutes les instructions une par une
+        for (grammarTCLParser.InstrContext instr : ctx.instr()) {
+            visit(instr);
+        }
+        // On visite le return final
+        return visit(ctx.expr());
     }
 
     @Override
@@ -325,8 +325,7 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitMain(grammarTCLParser.MainContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitMain'");
+        return visit(ctx.core_fct());
     }
 
 
