@@ -1,6 +1,6 @@
 import java.util.HashMap;
 import java.util.Map;
-
+import Type.PrimitiveType;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
 import Type.Type;
@@ -152,8 +152,28 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitDeclaration(grammarTCLParser.DeclarationContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitDeclaration'");
+        // 1. Récupération du nom
+        String name = ctx.VAR().getText();
+        Type t;
+
+        // 2. Détermination du type
+        if (ctx.type() != null) {
+            t = visit(ctx.type());
+        } else {
+            t = new UnknownType();
+        }
+
+        // 3. SETUP TABLE DES SYMBOLES : On enregistre
+        symbolTable.put(name, t);
+
+        // 4. Initialisation (On traite la liste d'expressions)
+        if (ctx.expr() != null && !ctx.expr().isEmpty()) {
+            // On récupère le premier élément de la LISTE avec .get(0)
+            Type tExpr = visit(ctx.expr());
+            solve(t, tExpr);
+        }
+        return null;
+
     }
 
     @Override
@@ -164,26 +184,68 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitAssignment(grammarTCLParser.AssignmentContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitAssignment'");
+        // 1. Récupération du nom
+        String name = ctx.VAR().getText();
+
+        // 2. Vérification dans la symbolTable
+        Type varType = symbolTable.get(name);
+        if (varType == null) {
+            throw new Error("Erreur : La variable '" + name + "' n'est pas déclarée !");
+        }
+
+        // 3. Récupération de la nouvelle valeur depuis la LISTE
+        if (ctx.expr() != null && !ctx.expr().isEmpty()) {
+            Type exprType = visit(ctx.expr().get(0));
+            // 4. Unification via le Solver
+            solve(varType, exprType);
+        }
+
+        return null;
     }
 
     @Override
     public Type visitBlock(grammarTCLParser.BlockContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitBlock'");
+        // 1. On sauvegarde la table des symboles actuelle (Le "Scope" parent)
+        Map<String, Type> parentScope = new HashMap<>(this.symbolTable);
+
+        // 2. On visite tous les enfants du bloc (les instructions) un par un
+        // visitChildren est une méthode magique qui évite de devoir connaître le nom exact de la règle
+        super.visitChildren(ctx);
+
+        // 3. On restaure la table d'origine : les variables créées dans le bloc sont supprimées
+        this.symbolTable = parentScope;
+
+        return null;
     }
 
     @Override
     public Type visitIf(grammarTCLParser.IfContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitIf'");
+        // 1. On récupère le type de la condition entre parenthèses
+        Type condType = visit(ctx.expr());
+
+        // 2. On force cette condition à être un BOOLÉEN
+        // C'est la règle de sécurité : un "if(5)" ne doit pas passer.
+        solve(condType, new PrimitiveType(Type.Base.BOOL));
+
+        // 3. On visite le reste (le corps du 'if' et du 'else')
+        // On utilise visitChildren pour éviter les erreurs de noms d'instructions
+        super.visitChildren(ctx);
+
+        return null;
     }
 
     @Override
     public Type visitWhile(grammarTCLParser.WhileContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitWhile'");
+        // 1. On récupère le type de la condition de boucle
+        Type condType = visit(ctx.expr());
+
+        // 2. La condition du while doit obligatoirement être un BOOLÉEN
+        solve(condType, new PrimitiveType(Type.Base.BOOL));
+
+        // 3. On visite le corps de la boucle
+        super.visitChildren(ctx);
+
+        return null;
     }
 
     @Override
