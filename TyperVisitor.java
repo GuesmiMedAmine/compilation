@@ -1,6 +1,6 @@
 import java.util.HashMap;
 import java.util.Map;
-import Type.*;
+
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
 import Type.Type;
@@ -50,39 +50,32 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitNegation(grammarTCLParser.NegationContext ctx) {
-        Type t = visit(ctx.expr());
-        solve(t, new PrimitiveType(Type.Base.BOOL));
-        return new PrimitiveType(Type.Base.BOOL);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitNegation'");
     }
 
     @Override
     public Type visitComparison(grammarTCLParser.ComparisonContext ctx) {
-        Type t1 = visit(ctx.expr(0));
-        Type t2 = visit(ctx.expr(1));
-        solve(t1, new PrimitiveType(Type.Base.INT));
-        solve(t2, new PrimitiveType(Type.Base.INT));
-        return new PrimitiveType(Type.Base.BOOL);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitComparison'");
     }
 
     @Override
     public Type visitOr(grammarTCLParser.OrContext ctx) {
-        Type t1 = visit(ctx.expr(0));
-        Type t2 = visit(ctx.expr(1));
-        solve(t1, new PrimitiveType(Type.Base.BOOL));
-        solve(t2, new PrimitiveType(Type.Base.BOOL));
-        return new PrimitiveType(Type.Base.BOOL);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitOr'");
     }
 
     @Override
     public Type visitOpposite(grammarTCLParser.OppositeContext ctx) {
-        Type t = visit(ctx.expr());
-        solve(t, new PrimitiveType(Type.Base.INT));
-        return new PrimitiveType(Type.Base.INT);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitOpposite'");
     }
 
     @Override
     public Type visitInteger(grammarTCLParser.IntegerContext ctx) {
-        return new PrimitiveType(Type.Base.INT);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitInteger'");
     }
 
     @Override
@@ -93,8 +86,8 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitBrackets(grammarTCLParser.BracketsContext ctx) {
-        // on renvoie juste le type de l'expression à l'intérieur
-        return visit(ctx.expr());
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitBrackets'");
     }
 
     @Override
@@ -105,16 +98,14 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitBoolean(grammarTCLParser.BooleanContext ctx) {
-        return new PrimitiveType(Type.Base.BOOL);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitBoolean'");
     }
 
     @Override
     public Type visitAnd(grammarTCLParser.AndContext ctx) {
-        Type t1 = visit(ctx.expr(0));
-        Type t2 = visit(ctx.expr(1));
-        solve(t1, new PrimitiveType(Type.Base.BOOL));
-        solve(t2, new PrimitiveType(Type.Base.BOOL));
-        return new PrimitiveType(Type.Base.BOOL);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitAnd'");
     }
 
     @Override
@@ -125,20 +116,14 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitMultiplication(grammarTCLParser.MultiplicationContext ctx) {
-        // On force les deux côtés à être des entiers car on a une multiplication
-        Type t1 = visit(ctx.expr(0));
-        Type t2 = visit(ctx.expr(1));
-        solve(t1, new PrimitiveType(Type.Base.INT));
-        solve(t2, new PrimitiveType(Type.Base.INT));
-        return new PrimitiveType(Type.Base.INT);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitMultiplication'");
     }
+
     @Override
     public Type visitEquality(grammarTCLParser.EqualityContext ctx) {
-        Type t1 = visit(ctx.expr(0));
-        Type t2 = visit(ctx.expr(1));
-        // Pour l'égalité, on vérifie juste que t1 et t2 sont du même type
-        solve(t1, t2);
-        return new PrimitiveType(Type.Base.BOOL);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitEquality'");
     }
 
     @Override
@@ -149,21 +134,14 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitAddition(grammarTCLParser.AdditionContext ctx) {
-
-            Type t1 = visit(ctx.expr(0));
-            Type t2 = visit(ctx.expr(1));
-            // On force les deux côtés à être des entiers car on a une addition
-            solve(t1, new PrimitiveType(Type.Base.INT));
-            solve(t2, new PrimitiveType(Type.Base.INT));
-            return new PrimitiveType(Type.Base.INT);
-        }
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitAddition'");
+    }
 
     @Override
     public Type visitBase_type(grammarTCLParser.Base_typeContext ctx) {
-        // Reconnaît 'int' et 'bool' dans la déclaration des fonctions
-        if (ctx.getText().equals("int")) return new PrimitiveType(Type.Base.INT);
-        if (ctx.getText().equals("bool")) return new PrimitiveType(Type.Base.BOOL);
-        return new UnknownType();
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitBase_type'");
     }
 
     @Override
@@ -180,11 +158,8 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitPrint(grammarTCLParser.PrintContext ctx) {
-        String varName = ctx.VAR().getText();
-        Type t = symbolTable.get(varName);
-        if (t == null) throw new RuntimeException("Erreur : Variable '" + varName + "' n'est pas déclarée.");
-        solve(t, new PrimitiveType(Type.Base.INT));
-        return new PrimitiveType(Type.Base.VOID);
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'visitPrint'");
     }
 
     @Override
