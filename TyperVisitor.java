@@ -1,6 +1,7 @@
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import Type.PrimitiveType;
+
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
 import Type.*;
@@ -86,25 +87,17 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitTab_access(grammarTCLParser.Tab_accessContext ctx) {
+        Type tTab = visit(ctx.expr(0));   // le tableau
+        Type tIndex = visit(ctx.expr(1)); // l'index
 
-        // Type de l'expression t
-        Type tType = visit(ctx.expr(0));
+        // L'index doit être un entier
+        solve(tIndex, new PrimitiveType(Type.Base.INT));
 
-        // Type de l'index i
-        Type indexType = visit(ctx.expr(1));
-
-        // 1) L'index doit être un entier
-        solve(indexType, new PrimitiveType(Type.Base.INT));
-
-        // 2) Le tableau doit être un ArrayType (ou un UnknownType qui devient tableau)
+        // Le tableau doit être un ArrayType contenant un type inconnu T
         UnknownType elemType = new UnknownType();
-        ArrayType expectedArray = new ArrayType(elemType);
+        solve(tTab, new ArrayType(elemType));
 
-        // Tenter d'unifier tType avec Array[T]
-        solve(tType, expectedArray);
-
-        // 3) Le résultat est le type des éléments
-        return elemType;
+        return elemType; // on retourne le type des éléments
     }
 
     @Override
@@ -115,8 +108,26 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitCall(grammarTCLParser.CallContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitCall'");
+        String name = ctx.VAR().getText();
+        Type t = symbolTable.get(name);
+        if (!(t instanceof FunctionType)) throw new Error("Fonction inconnue ou variable utilisée comme fonction : " + name);
+
+        FunctionType fType = (FunctionType) t;
+
+        // Vérification du nombre d'arguments
+        if (ctx.expr().size() != fType.getNbArgs()) 
+            throw new Error("Mauvais nombre d'arguments pour " + name);
+
+        // Création d'une instance fraîche pour chaque UnknownType (polymorphisme)
+        FunctionType instance = freshFunctionType(fType);
+
+        // Vérification des types des arguments
+        for (int i = 0; i < ctx.expr().size(); i++) {
+            Type argType = visit(ctx.expr(i));
+            solve(argType, instance.getArgsType(i));
+        }
+
+        return instance.getReturnType();
     }
 
     @Override
@@ -163,18 +174,19 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitTab_initialization(grammarTCLParser.Tab_initializationContext ctx) {
-
-        // 1) Créer un nouveau type inconnu pour le type des éléments
-        UnknownType T = new UnknownType();
-
-        // 2) Pour chaque élément entre { ... }, unifier son type avec T
-        for (var expr : ctx.expr()) {
-            Type elemType = visit(expr);
-            solve(elemType, T);
+        if (ctx.expr().isEmpty()) {
+            // Cas : new type[N] n'existe pas encore dans ta grammaire, 
+            // on peut juste retourner un ArrayType d'un type inconnu
+            return new ArrayType(new UnknownType());
+        } else {
+            // Cas : {val1, val2, ...}
+            UnknownType elemType = new UnknownType();
+            for (grammarTCLParser.ExprContext expr : ctx.expr()) {
+                Type tElem = visit(expr);
+                solve(tElem, elemType); // Tous les éléments doivent avoir le même type
+            }
+            return new ArrayType(elemType);
         }
-
-        // 3) Retourner un tableau dont les éléments sont de type T
-        return new ArrayType(T);
     }
 
     @Override
@@ -198,8 +210,9 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitTab_type(grammarTCLParser.Tab_typeContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitTab_type'");
+        // ctx.type() existe car tab_type: type '[' ']'
+        Type baseType = visit(ctx.type());
+        return new ArrayType(baseType);
     }
 
     @Override
@@ -309,24 +322,108 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitCore_fct(grammarTCLParser.Core_fctContext ctx) {
-        // On visite toutes les instructions une par une
+        // Création d'un scope local pour les instructions
+        Map<String, Type> snapshot = new HashMap<>(symbolTable);
+
+        // On visite toutes les instructions du corps
         for (grammarTCLParser.InstrContext instr : ctx.instr()) {
             visit(instr);
         }
-        // On visite le return final
-        return visit(ctx.expr());
+
+        // Visite du return final et récupération de son type
+        Type retType = visit(ctx.expr());
+
+        // Restauration du scope parent (variables locales effacées)
+        symbolTable = snapshot;
+
+        return retType;
     }
 
     @Override
     public Type visitDecl_fct(grammarTCLParser.Decl_fctContext ctx) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'visitDecl_fct'");
+        String name = ctx.VAR(0).getText(); // nom de la fonction
+
+        // Type de retour
+        Type returnType = ctx.type(0).getText().equals("auto") ? new UnknownType() : visit(ctx.type(0));
+
+        // Création de la signature des arguments
+        ArrayList<Type> argsTypes = new ArrayList<>();
+
+        // Les arguments commencent à VAR(1), type(1) correspond à VAR(1)
+        for (int i = 1; i < ctx.VAR().size(); i++) {
+            Type argType = visit(ctx.type(i)); // type du paramètre
+            argsTypes.add(argType);
+            symbolTable.put(ctx.VAR(i).getText(), argType); // ajout au scope local
+        }
+
+        FunctionType fType = new FunctionType(returnType, argsTypes);
+
+        // Ajout au scope global pour récursivité
+        symbolTable.put(name, fType);
+
+        // Sauvegarde du scope pour le corps de la fonction
+        Map<String, Type> snapshot = new HashMap<>(symbolTable);
+
+        // Visite du corps
+        visit(ctx.core_fct());
+
+        // Restauration du scope global
+        symbolTable = snapshot;
+
+        // On remet la fonction globale
+        symbolTable.put(name, fType);
+
+        return new PrimitiveType(Type.Base.VOID);
     }
 
     @Override
     public Type visitMain(grammarTCLParser.MainContext ctx) {
-        return visit(ctx.core_fct());
+        // On considère 'main' comme une fonction sans argument et de type int
+        FunctionType mainType = new FunctionType(new PrimitiveType(Type.Base.INT), new ArrayList<>());
+        symbolTable.put("main", mainType);
+
+        // Visite des éventuelles déclarations de fonction avant le main
+        for (int i = 0; i < ctx.decl_fct().size(); i++) {
+            visit(ctx.decl_fct(i));
+        }
+
+        // Visite du corps du main
+        Type ret = visit(ctx.core_fct());
+
+        // Ici on pourrait faire un check final que le type du main est int
+        solve(ret, mainType.getReturnType());
+
+        return mainType;
     }
 
+    // Génère une "copie fraîche" d'une FunctionType en clonant tous les UnknownType
+    private FunctionType freshFunctionType(FunctionType f) {
+        Map<UnknownType, UnknownType> mapping = new HashMap<>();
+
+        ArrayList<Type> newArgs = new ArrayList<>();
+        for (Type arg : f.getArgsTypes()) {
+            newArgs.add(freshType(arg, mapping));
+        }
+        Type newReturn = freshType(f.getReturnType(), mapping);
+        return new FunctionType(newReturn, newArgs);
+    }
+
+    // Clone récursif des UnknownType pour créer de nouvelles instances
+    private Type freshType(Type t, Map<UnknownType, UnknownType> mapping) {
+        if (t instanceof UnknownType) {
+            UnknownType ut = (UnknownType) t;
+            if (!mapping.containsKey(ut)) mapping.put(ut, new UnknownType());
+            return mapping.get(ut);
+        } else if (t instanceof ArrayType) {
+            return new ArrayType(freshType(((ArrayType) t).getTabType(), mapping));
+        } else if (t instanceof FunctionType) {
+            FunctionType ft = (FunctionType) t;
+            ArrayList<Type> args = new ArrayList<>();
+            for (Type arg : ft.getArgsTypes()) args.add(freshType(arg, mapping));
+            return new FunctionType(freshType(ft.getReturnType(), mapping), args);
+        } else {
+            return t; // PrimitiveType
+        }
+    }
 
 }
