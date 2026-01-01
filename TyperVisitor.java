@@ -218,22 +218,26 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
     @Override
     public Type visitDeclaration(grammarTCLParser.DeclarationContext ctx) {
         String name = ctx.VAR().getText();
-        Type t;
 
-        // Déduction du type
+        // ❌ Redéclaration interdite
+        if (symbolTable.containsKey(name)) {
+            int line = ctx.start.getLine();
+            throw new Error("Redéclaration de la variable '" + name + "' à la ligne " + line);
+        }
+
+        Type t;
         if (ctx.type().getText().equals("auto")) {
             t = new UnknownType();
         } else {
             t = visit(ctx.type());
         }
 
-        // Enregistrement
-        symbolTable.put(name, t);
-
         if (ctx.expr() != null) {
             Type tExpr = visit(ctx.expr());
             solve(t, tExpr);
         }
+
+        symbolTable.put(name, t);
         return new PrimitiveType(Type.Base.VOID);
     }
 
@@ -341,36 +345,44 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitDecl_fct(grammarTCLParser.Decl_fctContext ctx) {
-        String name = ctx.VAR(0).getText(); // nom de la fonction
+        String name = ctx.VAR(0).getText();
+        int line = ctx.start.getLine();
 
-        // Type de retour
+        if (symbolTable.containsKey(name)) {
+            throw new Error("Redéclaration de la fonction '" + name + "' à la ligne " + line);
+        }
+
+        // Type de retour initial (UnknownType si auto)
         Type returnType = ctx.type(0).getText().equals("auto") ? new UnknownType() : visit(ctx.type(0));
 
-        // Création de la signature des arguments
         ArrayList<Type> argsTypes = new ArrayList<>();
 
-        // Les arguments commencent à VAR(1), type(1) correspond à VAR(1)
+        // Nouveau scope temporaire pour vérifier les paramètres
+        Map<String, Type> snapshot = new HashMap<>(symbolTable);
+
         for (int i = 1; i < ctx.VAR().size(); i++) {
-            Type argType = visit(ctx.type(i)); // type du paramètre
+            String argName = ctx.VAR(i).getText();
+            if (symbolTable.containsKey(argName)) {
+                throw new Error(
+                    "Paramètre '" + argName + "' dupliqué dans la fonction '" + name +
+                    "' à la ligne " + ctx.VAR(i).getSymbol().getLine()
+                );
+            }
+            Type argType = ctx.type(i).getText().equals("auto") ? new UnknownType() : visit(ctx.type(i));
             argsTypes.add(argType);
-            symbolTable.put(ctx.VAR(i).getText(), argType); // ajout au scope local
+            symbolTable.put(argName, argType);
         }
 
         FunctionType fType = new FunctionType(returnType, argsTypes);
 
-        // Ajout au scope global pour récursivité
+        // ✅ Ajout immédiat dans le scope global pour permettre les appels polymorphes
         symbolTable.put(name, fType);
-
-        // Sauvegarde du scope pour le corps de la fonction
-        Map<String, Type> snapshot = new HashMap<>(symbolTable);
 
         // Visite du corps
         visit(ctx.core_fct());
 
-        // Restauration du scope global
+        // Restauration du scope local (mais la fonction globale reste)
         symbolTable = snapshot;
-
-        // On remet la fonction globale
         symbolTable.put(name, fType);
 
         return new PrimitiveType(Type.Base.VOID);
