@@ -152,28 +152,34 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
     @Override
     public Type visitDeclaration(grammarTCLParser.DeclarationContext ctx) {
-        // 1. Récupération du nom
         String name = ctx.VAR().getText();
-        Type t;
 
-        // 2. Détermination du type
-        if (ctx.type() != null) {
-            t = visit(ctx.type());
-        } else {
-            t = new UnknownType();
+        // 1. Vérification de redéclaration (Règle 1.2 de l'énoncé)
+        // On vérifie si le nom existe déjà dans le bloc actuel
+        if (symbolTable.containsKey(name)) {
+            throw new Error("Erreur sémantique : La variable '" + name + "' est déjà déclarée !");
         }
 
-        // 3. SETUP TABLE DES SYMBOLES : On enregistre
+        Type t;
+        // 2. Gestion du type et du mot-clé 'auto' [cite: 38, 54]
+        // Si ctx.type() est nul ou contient "auto", on utilise UnknownType
+        if (ctx.type() == null || ctx.type().getText().equals("auto")) {
+            t = new UnknownType();
+        } else {
+            t = visit(ctx.type()); // On visite le type (int, bool, tab)
+        }
+
+        // 3. Enregistrement dans la table des symboles
         symbolTable.put(name, t);
 
-        // 4. Initialisation (On traite la liste d'expressions)
-        if (ctx.expr() != null && !ctx.expr().isEmpty()) {
-            // On récupère le premier élément de la LISTE avec .get(0)
+        // 4. Initialisation (ex: int x = 5)
+        if (ctx.expr() != null) {
             Type tExpr = visit(ctx.expr());
-            solve(t, tExpr);
+            solve(t, tExpr); // Le Solver fait l'inférence
         }
-        return null;
 
+        // En TCL, une déclaration est une instruction, elle ne renvoie pas de valeur
+        return null;
     }
 
     @Override
