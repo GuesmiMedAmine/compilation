@@ -115,7 +115,7 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
         FunctionType fType = (FunctionType) t;
 
         // Vérification du nombre d'arguments
-        if (ctx.expr().size() != fType.getNbArgs()) 
+        if (ctx.expr().size() != fType.getNbArgs())
             throw new Error("Mauvais nombre d'arguments pour " + name);
 
         // Création d'une instance fraîche pour chaque UnknownType (polymorphisme)
@@ -175,7 +175,7 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
     @Override
     public Type visitTab_initialization(grammarTCLParser.Tab_initializationContext ctx) {
         if (ctx.expr().isEmpty()) {
-            // Cas : new type[N] n'existe pas encore dans ta grammaire, 
+            // Cas : new type[N] n'existe pas encore dans ta grammaire,
             // on peut juste retourner un ArrayType d'un type inconnu
             return new ArrayType(new UnknownType());
         } else {
@@ -218,31 +218,44 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
     @Override
     public Type visitDeclaration(grammarTCLParser.DeclarationContext ctx) {
         String name = ctx.VAR().getText();
-        Type t;
 
-        // Déduction du type
-        if (ctx.type().getText().equals("auto")) {
+        // 1. Vérification de redéclaration (Règle 1.2 de l'énoncé)
+        // On vérifie si le nom existe déjà dans le bloc actuel
+        if (symbolTable.containsKey(name)) {
+            throw new Error("Erreur sémantique : La variable '" + name + "' est déjà déclarée !");
+        }
+
+        Type t;
+        // 2. Gestion du type et du mot-clé 'auto' [cite: 38, 54]
+        // Si ctx.type() est nul ou contient "auto", on utilise UnknownType
+        if (ctx.type() == null || ctx.type().getText().equals("auto")) {
             t = new UnknownType();
         } else {
-            t = visit(ctx.type());
+            t = visit(ctx.type()); // On visite le type (int, bool, tab)
         }
 
-        // Enregistrement
+        // 3. Enregistrement dans la table des symboles
         symbolTable.put(name, t);
 
+        // 4. Initialisation (ex: int x = 5)
         if (ctx.expr() != null) {
             Type tExpr = visit(ctx.expr());
-            solve(t, tExpr);
+            solve(t, tExpr); // Le Solver fait l'inférence
         }
-        return new PrimitiveType(Type.Base.VOID);
+
+        // En TCL, une déclaration est une instruction, elle ne renvoie pas de valeur
+        return null;
     }
 
     @Override
     public Type visitPrint(grammarTCLParser.PrintContext ctx) {
         String varName = ctx.VAR().getText();
         Type t = symbolTable.get(varName);
-        if (t == null) throw new RuntimeException("Erreur : Variable '" + varName + "' n'est pas déclarée.");
-        solve(t, new PrimitiveType(Type.Base.INT));
+        if (t == null) throw new RuntimeException("Erreur : Variable '" + varName + "' non déclarée.");
+        //On accepte tout sauf VOID
+        if (t instanceof PrimitiveType && ((PrimitiveType)t).getType() == Type.Base.VOID) {
+            throw new Error("Erreur : Impossible d'afficher du VOID.");
+        }
         return new PrimitiveType(Type.Base.VOID);
     }
 
@@ -338,42 +351,42 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
 
         return retType;
     }
-
     @Override
     public Type visitDecl_fct(grammarTCLParser.Decl_fctContext ctx) {
-        String name = ctx.VAR(0).getText(); // nom de la fonction
+        String name = ctx.VAR(0).getText();
+        // 1. Vérification doublon fonction [cite: 44]
+        if (symbolTable.containsKey(name)) {
+            throw new Error("Erreur sémantique : La fonction '" + name + "' est déjà définie !");
+        }
 
-        // Type de retour
-        Type returnType = ctx.type(0).getText().equals("auto") ? new UnknownType() : visit(ctx.type(0));
-
-        // Création de la signature des arguments
+        // 2. Signature
+        Type returnType = (ctx.type(0).getText().equals("auto")) ? new UnknownType() : visit(ctx.type(0));
         ArrayList<Type> argsTypes = new ArrayList<>();
+        Map<String, Type> tempArgs = new HashMap<>();
 
-        // Les arguments commencent à VAR(1), type(1) correspond à VAR(1)
+        // 3. Arguments
         for (int i = 1; i < ctx.VAR().size(); i++) {
-            Type argType = visit(ctx.type(i)); // type du paramètre
+            String argName = ctx.VAR(i).getText();
+            // Vérification doublon argument [cite: 44]
+            if (tempArgs.containsKey(argName)) {
+                throw new Error("Erreur sémantique : Argument '" + argName + "' dupliqué dans " + name);
+            }
+
+            Type argType = (ctx.type(i).getText().equals("auto")) ? new UnknownType() : visit(ctx.type(i));
             argsTypes.add(argType);
-            symbolTable.put(ctx.VAR(i).getText(), argType); // ajout au scope local
+            tempArgs.put(argName, argType);
         }
 
         FunctionType fType = new FunctionType(returnType, argsTypes);
-
-        // Ajout au scope global pour récursivité
         symbolTable.put(name, fType);
 
-        // Sauvegarde du scope pour le corps de la fonction
-        Map<String, Type> snapshot = new HashMap<>(symbolTable);
-
-        // Visite du corps
-        visit(ctx.core_fct());
-
-        // Restauration du scope global
-        symbolTable = snapshot;
-
-        // On remet la fonction globale
-        symbolTable.put(name, fType);
-
-        return new PrimitiveType(Type.Base.VOID);
+        // 4. Corps et Vérification du Return
+        Map<String, Type> previousScope = new HashMap<>(symbolTable);
+        symbolTable.putAll(tempArgs);
+        Type bodyReturnType = visit(ctx.core_fct());
+        solve(bodyReturnType, returnType);
+        symbolTable = previousScope;
+        return null;
     }
 
     @Override
