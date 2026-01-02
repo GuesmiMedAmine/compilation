@@ -25,3 +25,4 @@
 "C:/Users/etulyon1/Desktop/3A INFO/APO/TP/compilation/Type/PrimitiveType.java"
 "C:/Users/etulyon1/Desktop/3A INFO/APO/TP/compilation/Type/Type.java"
 "C:/Users/etulyon1/Desktop/3A INFO/APO/TP/compilation/Type/UnknownType.java"
+"C:/Users/etulyon1/Desktop/3A INFO/APO/TP/compilation/SemanticError.java"

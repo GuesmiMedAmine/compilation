@@ -1,5 +1,10 @@
+int f(auto x) {
+    x = 0 ;
+    return x ;
+}
+
 int main() {
-    auto x = 0;
+    int x = 0;
     int y = 10;
 
     while (x < y) {
