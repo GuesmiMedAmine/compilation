@@ -1,21 +1,15 @@
-int f(auto x) {
-    x = 0 ;
-    return x ;
+auto f(auto x) {
+    return {x};
 }
 
 int main() {
-    int x = 0;
-    int y = 10;
-
-    while (x < y) {
-        print(x);
-        x = x + 1;
+    int a = 10;
+    int[] tab_a = f(a);
+    bool b = true;
+    bool[] tab_b = f(b);
+    if (b) {
+        int val = tab_a[0];
+        print(val);
     }
-
-    if (x == 10) {
-        int z = 999;
-        print(z);
-    }
-
     return 0;
 }

@@ -553,6 +553,8 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
             throw new SemanticError(ctx, "Mauvais nombre d'arguments pour " + name + " (attendu: " + fType.getNbArgs() + ", reçu: " + ctx.expr().size() + ")");
         }
 
+        fType = (FunctionType) fType.substituteAll(this.types);
+
         FunctionType instance = freshFunctionType(fType);
 
         for (int i = 0; i < ctx.expr().size(); i++) {
