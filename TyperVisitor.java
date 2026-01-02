@@ -295,13 +295,12 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
         int lastIndex = ctx.expr().size() - 1;
         Type tExpr = visit(ctx.expr(lastIndex));
 
-        // --- CORRECTION CLÉ : Gestion de t[i][j] = ... ---
         // Le nombre de crochets correspond au nombre d'expr - 1 (la valeur)
         int nbAccess = ctx.expr().size() - 1;
         Type currentType = tVar;
 
         for (int i = 0; i < nbAccess; i++) {
-            // L'index doit être un INT
+            // L'index doit être un int
             Type tIndex = visit(ctx.expr(i));
             solve(tIndex, new PrimitiveType(Type.Base.INT), ctx);
 
@@ -498,7 +497,6 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
         // Visite du corps et récupération du type réel retourné
         Type bodyReturnType = visit(ctx.core_fct());
 
-        // --- CHECK CRITIQUE : Le corps doit correspondre à la signature ---
         solve(bodyReturnType, returnType, ctx);
 
         symbolTable = snapshot;
