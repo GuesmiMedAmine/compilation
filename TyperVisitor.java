@@ -631,4 +631,17 @@ public class TyperVisitor extends AbstractParseTreeVisitor<Type> implements gram
             return t;
         }
     }
+    /**
+     * Retourne la table des symboles avec tous les types résolus.
+     */
+    public Map<String, Type> getSymbolTable() {
+        Map<String, Type> resolvedTable = new HashMap<>();
+
+        for (Map.Entry<String, Type> entry : this.symbolTable.entrySet()) {
+            // On applique toutes les substitutions connues pour avoir le vrai type (INT/BOOL)
+            resolvedTable.put(entry.getKey(), entry.getValue().substituteAll(this.types));
+        }
+
+        return resolvedTable;
+    }
 }
