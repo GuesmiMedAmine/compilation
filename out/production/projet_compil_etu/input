@@ -1,0 +1,15 @@
+auto f(auto x) {
+    return {x};
+}
+
+int main() {
+    int a = 10;
+    int[] tab_a = f(a);
+    bool b = true;
+    bool[] tab_b = f(b);
+    if (b) {
+        int val = tab_a[0];
+        print(val);
+    }
+    return 0;
+}
